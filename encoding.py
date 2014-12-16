@@ -47,8 +47,6 @@ def file(stream, contents):
     stream.write(common.magic)
     sequence(stream, contents)
     stream.write_uint(stream.crc)
-    return stream
-
 
 coders = {
     common.STRING: string,

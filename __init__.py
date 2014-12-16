@@ -4,9 +4,9 @@ import decoding
 import encoding
 
 def load(fd, transform=common.default_transform_dec):
-    stream = stream.ReadStream(fd, transform)
-    return decoding.file(stream)
+    rd = stream.ReadStream(fd, transform)
+    return decoding.file(rd)
 
 def dump(contents, fd, transform=common.default_transform_enc):
-    stream = stream.WriteStream(fd, transform)
-    return encoding.file(stream, contents)
+    wr = stream.WriteStream(fd, transform)
+    encoding.file(wr, contents)
