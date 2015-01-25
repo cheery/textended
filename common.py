@@ -1,65 +1,54 @@
 """
+    This stream format has been meant for pleasant
+    and layered structured programming. It extends
+    text representation with a tree structure.
+    Additionally it is able to function as a
+    data-interchange format. It has been inspired
+    by json, lisp and unix systems.
+
+    A valid file starts with the header, ends with
+    0xff and crc-32 field. Between there may be zero
+    or more nodes.
+
     'magic' imitates the PNG identification string.
     Additionally it holds the version number. Newer
-    versions will be incompatible by default.
+    versions will be incompatible by default. Internal
+    model of the format was settled down when I
+    designed it. Newer versions would introduce changes
+    to the encoding of the same data, rather than
+    extend the possible forms of the data.
 
-    It's this way because the internal model of
-    the format was settled down when I designed it.
-    Newer versions would introduce changes to the
-    encoding of the same data, rather than extend
-    the possible forms of the data.
-
-    Each function with same name in 'decoding'
+    The node is a triplet, consisting of an identifier
+    label and contents. The identifier&label portion
+    is considered as a symbol.
+    
+    Each function with same name in 'decoding' -module
     decodes what 'encoding' encodes. This kind of
-    functional composition and isomorphism is in
+    functional composition and isomorphism is in 
     itself very compact and readable description of
     the file format.
 
-    This format has been meant to extend text
-    representation with a structure. It has been
-    meant for pleasant and layered structured
-    programming.
-
-    Smarter might notice that symbols are redundant
-    and could be represented by strings. They are
-    there to make the format uniform while
-    eliminating hard to represent forms, such as
-    list as labels or labelled symbols.
-
-    Symbols have a different encoding due to their
-    atomicity. They are the only construct capable
-    of being promoted as a label for an another.
-    Besides they always appear within a list, so
-    you can access them by index, or by symbol if
-    they're unique.
-
-    This is a stream format. Additionally it is
-    meant to become a data-interchange format. It
-    was designed after json, but inspired by lisp
-    and unix.
-
     As a NIH counterargument, I considered all JSON,
     CBOR and BSON before settling to design my own
-    format. JSON was not compatible with my
-    use case. CBOR sets too permissive tone for
-    "extensions" of the format. There's no point
-    in data-interchange format that cannot be
-    parsed otherwise than being corrupted. BSON's
-    byte-length fields sacrifise streamability and
-    writability to favor quicker read, But those
-    in need of random-access would be better off
-    using a database.
+    format.
+    
+     * JSON was not compatible with my use case.
+     * CBOR sets too permissive tone for "extensions"
+    of the format. If you do not know the 'schema'
+    of the file, you can't parse it at all.
+     * BSON's byte-length fields sacrifise streamability
+    and writability to favor quicker read.
 """
-magic = "\211t+\r\n\032\n\000"
+magic = "\211t+\r\n\032\n\001"
 SYMBOL = 0
 STRING = 1
 BINARY = 2
 LIST = 3
 
 class Node(object):
-    def __init__(self, ident, label, contents):
-        self.contents = contents
+    def __init__(self, label, contents=None, ident=""):
         self.ident = ident
+        self.contents = contents
         self.label = label
 
     def __getitem__(self, index):
@@ -73,15 +62,14 @@ class Node(object):
             label = "{0.label}#{0.ident}".format(self)
         else:
             label = self.label
+        if self.contents is None:
+            return label
         return "({}){!r}".format(label, self.contents)
 
 def default_transform_enc(node):
-    if isinstance(node, (str, unicode)):
-        return node
     if isinstance(node, Node):
-        return (node.ident, node.label, node.contents)
+        return (node.label, node.contents, node.ident)
+    return (u"", node, "")
 
-def default_transform_dec(obj):
-    if isinstance(obj, tuple):
-        return Node(*obj)
-    return obj
+def default_transform_dec(label, contents, ident):
+    return Node(label, contents, ident)

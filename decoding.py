@@ -20,22 +20,34 @@ def string(stream):
 def sequence(stream):
     return [node(stream) for n in range(integer(stream))]
 
+def nothing(stream):
+    pass
+
 def node(stream):
-    tag = stream.read_ubyte()
-    if tag == 0:
-        return stream.transform(string(stream))
+    tag = stream.read_ubyte(safe_trunc=True)
+    if tag == 255:
+        raise StopIteration()
     ident = binary(stream) if tag & 0x80 else ''
     label = string(stream) if tag & 0x40 else u''
-    return stream.transform((ident, label, coders[tag & 3](stream)))
+    return stream.transform(label, coders[tag & 3](stream), ident)
 
 def file(stream):
+    header(stream)
+    try:
+        while True:
+            yield node(stream)
+    except StopIteration:
+        footer(stream)
+
+def header(stream):
     assert common.magic == stream.read(len(common.magic)), "file header mismatch"
-    contents = sequence(stream)
+
+def footer(stream):
     crc = stream.crc & 0xFFFFFFFF
     assert crc == stream.read_uint(), "crc mismatch"
-    return contents
 
 coders = {
+    common.SYMBOL: nothing,
     common.STRING: string,
     common.BINARY: binary,
     common.LIST:   sequence,
@@ -45,4 +57,5 @@ if __name__ == '__main__':
     import sys
     from stream import ReadStream
     stream = ReadStream(sys.stdin, common.default_transform_dec)
-    print file(stream)
+    for subj in file(stream):
+        print subj
