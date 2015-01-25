@@ -40,6 +40,7 @@
     and writability to favor quicker read.
 """
 magic = "\211t+\r\n\032\n\001"
+legacy_magic = "\211t+\r\n\032\n\000"
 SYMBOL = 0
 STRING = 1
 BINARY = 2
@@ -59,7 +60,7 @@ class Node(object):
 
     def __repr__(self):
         if len(self.ident) > 0:
-            label = "{0.label}#{0.ident}".format(self)
+            label = "{0.label}#{0.ident!r}".format(self)
         else:
             label = self.label
         if self.contents is None:
