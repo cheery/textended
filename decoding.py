@@ -45,8 +45,8 @@ def node(stream):
 def file(stream):
     legacy_mode = header(stream)
     if legacy_mode:
-        for node in legacy_sequence(stream):
-            yield node
+        for subj in legacy_sequence(stream):
+            yield subj
         footer(stream)
     else:
         try:
