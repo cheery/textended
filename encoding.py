@@ -21,28 +21,22 @@ def sequence(stream, nodes):
     for item in nodes:
         node(stream, item)
 
-def nothing(stream, value):
-    pass
+def struct(stream, (contents, label, grammar)):
+    integer(stream, stream.grammar[grammar])
+    string(stream, label)
+    sequence(stream, contents)
 
 def node(stream, node):
-    label, contents, ident = stream.transform(node)
-    tag = 0
+    tag, ident, contents = stream.transform(node)
     tag |= 0x80 * (len(ident) > 0)
-    tag |= 0x40 * (len(label) > 0)
-    if contents is None:
-        tag |= common.SYMBOL
-    elif isinstance(contents, unicode):
-        tag |= common.STRING
-    elif isinstance(contents, str):
-        tag |= common.BINARY
-    else:
-        tag |= common.LIST
+    if tag == common.STRUCT and contents[2] not in stream.grammar:
+        stream.write_ubyte(common.GRAMMAR)
+        stream.string(contents[2])
+        stream.grammar[contents[2]] = len(stream.grammar)
     stream.write_ubyte(tag)
     if len(ident) > 0:
         binary(stream, ident)
-    if len(label) > 0:
-        string(stream, label)
-    coders[tag & 3](stream, contents)
+    coders[tag & 15](stream, contents)
 
 def file(stream, contents):
     header(stream)
@@ -58,21 +52,23 @@ def footer(stream):
     stream.write_uint(stream.crc)
 
 coders = {
-    common.SYMBOL: nothing,
+    common.SYMBOL: string,
     common.STRING: string,
     common.BINARY: binary,
     common.LIST:   sequence,
+    common.STRUCT: struct,
 }
 
 if __name__ == '__main__':
     import sys
     from stream import WriteStream
     from common import Node
-    stream = WriteStream(sys.stdout, common.default_transform_enc)
+    stream = WriteStream(sys.stdout, lambda x: x)
     file(stream, [
-        Node(u"a"),
-        Node(u'', "b", '#ref'),
-        u"cdefg",
-        Node(u'call', []),
-        [],
+        (common.SYMBOL, "1", u"a"),
+        (common.STRING, "2", u"lol"),
+        (common.LIST,   "3", [
+        ]),
+        (common.STRUCT, "4", ([
+        ], "foo", "bar")),
     ])

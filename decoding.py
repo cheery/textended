@@ -23,31 +23,58 @@ def sequence(stream):
 def legacy_sequence(stream):
     return [legacy_node(stream) for n in range(integer(stream))]
 
-def nothing(stream):
-    pass
+def legacy_sequence2(stream):
+    return [legacy_node2(stream) for n in range(integer(stream))]
+
+def struct(stream):
+    grammar = stream.grammar[integer(stream)]
+    label = string(stream)
+    return sequence(stream), label, grammar
 
 def legacy_node(stream):
     tag = stream.read_ubyte()
     if tag == 0:
-        return stream.transform(string(stream), None, '')
+        return stream.transform(common.SYMBOL, "", string(stream))
     ident = binary(stream) if tag & 0x80 else ''
     label = string(stream) if tag & 0x40 else u''
-    return stream.transform(label, legacy_coders[tag & 3](stream), ident)
+    if len(label) > 0 and tag & 3 == common.LIST:
+        return stream.transform(common.STRUCT, ident, (legacy_coders[tag & 3](stream), label, ""))
+    return stream.transform(tag & 3, ident, legacy_coders[tag & 3](stream))
 
-def node(stream):
+def legacy_node2(stream):
     tag = stream.read_ubyte(safe_trunc=True)
     if tag == 255:
         raise StopIteration()
     ident = binary(stream) if tag & 0x80 else ''
     label = string(stream) if tag & 0x40 else u''
-    return stream.transform(label, coders[tag & 3](stream), ident)
+    if tag & 3 == common.SYMBOL:
+        return stream.transform(tag & 3, ident, label)
+    if len(label) > 0 and tag & 3 == common.LIST:
+        return stream.transform(common.STRUCT, ident, (legacy_coders2[tag & 3](stream), label, ""))
+    return stream.transform(tag & 3, ident, legacy_coders2[tag & 3](stream))
+
+def node(stream):
+    tag = stream.read_ubyte(safe_trunc=True)
+    if tag == 255:
+        raise StopIteration()
+    if tag == common.GRAMMAR:
+        stream.grammars[len(stream.grammars)] = string(stream)
+        return node(stream)
+    ident = binary(stream) if tag & 0x80 else ''
+    return stream.transform(tag & 15, ident, coders[tag & 15](stream))
 
 def file(stream):
     legacy_mode = header(stream)
-    if legacy_mode:
+    if legacy_mode == 1:
         for subj in legacy_sequence(stream):
             yield subj
         footer(stream)
+    elif legacy_mode == 2:
+        try:
+            while True:
+                yield legacy_node2(stream)
+        except StopIteration:
+            footer(stream)
     else:
         try:
             while True:
@@ -58,30 +85,39 @@ def file(stream):
 def header(stream):
     magic = stream.read(len(common.magic))
     if magic == common.legacy_magic:
-        return True
+        return 1
+    if magic == common.legacy_magic2:
+        return 2
     assert common.magic == magic, "file header mismatch"
+    return 0
 
 def footer(stream):
     crc = stream.crc & 0xFFFFFFFF
     assert crc == stream.read_uint(), "crc mismatch"
 
 coders = {
-    common.SYMBOL: nothing,
+    common.SYMBOL: string,
     common.STRING: string,
     common.BINARY: binary,
     common.LIST:   sequence,
+    common.STRUCT: struct,
 }
 
 legacy_coders = {
-    common.SYMBOL: nothing,
     common.STRING: string,
     common.BINARY: binary,
     common.LIST:   legacy_sequence,
 }
 
+legacy_coders2 = {
+    common.STRING: string,
+    common.BINARY: binary,
+    common.LIST:   legacy_sequence2,
+}
+
 if __name__ == '__main__':
     import sys
     from stream import ReadStream
-    stream = ReadStream(sys.stdin, common.default_transform_dec)
+    stream = ReadStream(sys.stdin, lambda tag, ident, contents: (tag, ident, contents))
     for subj in file(stream):
         print subj

@@ -10,6 +10,7 @@ class ReadStream(object):
         self.fd = fd
         self.crc = 0
         self.transform = transform
+        self.grammars = {}
 
     def read(self, count, safe_trunc=False):
         data = self.fd.read(count)
@@ -32,6 +33,7 @@ class WriteStream(object):
         self.fd = fd
         self.crc = 0
         self.transform = transform
+        self.grammars = {}
 
     def write(self, data):
         self.crc = crc32(data, self.crc)

@@ -39,38 +39,12 @@
      * BSON's byte-length fields sacrifise streamability
     and writability to favor quicker read.
 """
-magic = "\211t+\r\n\032\n\001"
+magic = "\211t+\r\n\032\n\002"
+legacy_magic2 = "\211t+\r\n\032\n\001"
 legacy_magic = "\211t+\r\n\032\n\000"
 SYMBOL = 0
 STRING = 1
 BINARY = 2
 LIST = 3
-
-class Node(object):
-    def __init__(self, label, contents=None, ident=""):
-        self.ident = ident
-        self.contents = contents
-        self.label = label
-
-    def __getitem__(self, index):
-        return self.contents[index]
-    
-    def __len__(self):
-        return len(self.contents)
-
-    def __repr__(self):
-        if len(self.ident) > 0:
-            label = "{0.label}#{0.ident!r}".format(self)
-        else:
-            label = self.label
-        if self.contents is None:
-            return label
-        return "({}){!r}".format(label, self.contents)
-
-def default_transform_enc(node):
-    if isinstance(node, Node):
-        return (node.label, node.contents, node.ident)
-    return (u"", node, "")
-
-def default_transform_dec(label, contents, ident):
-    return Node(label, contents, ident)
+STRUCT = 4
+GRAMMAR = 5
