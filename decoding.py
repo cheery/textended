@@ -27,7 +27,7 @@ def legacy_sequence2(stream):
     return [legacy_node2(stream) for n in range(integer(stream))]
 
 def struct(stream):
-    grammar = stream.grammar[integer(stream)]
+    grammar = stream.grammars[integer(stream)]
     label = string(stream)
     return sequence(stream), label, grammar
 

@@ -22,17 +22,17 @@ def sequence(stream, nodes):
         node(stream, item)
 
 def struct(stream, (contents, label, grammar)):
-    integer(stream, stream.grammar[grammar])
+    integer(stream, stream.grammars[grammar])
     string(stream, label)
     sequence(stream, contents)
 
 def node(stream, node):
     tag, ident, contents = stream.transform(node)
     tag |= 0x80 * (len(ident) > 0)
-    if tag == common.STRUCT and contents[2] not in stream.grammar:
+    if tag & 15 == common.STRUCT and contents[2] not in stream.grammars:
         stream.write_ubyte(common.GRAMMAR)
-        stream.string(contents[2])
-        stream.grammar[contents[2]] = len(stream.grammar)
+        string(stream, contents[2])
+        stream.grammars[contents[2]] = len(stream.grammars)
     stream.write_ubyte(tag)
     if len(ident) > 0:
         binary(stream, ident)
